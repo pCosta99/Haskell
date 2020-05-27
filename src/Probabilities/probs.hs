@@ -1,20 +1,33 @@
 module Probability where
 
 import Cp (p1, p2, (><))
+import Show (showR)
+import Data.List (sort)
+import System.Random (randomRIO)
 -- Developed along the reading of the paper Probabilistic Functional Programming in Haskell by Martin Erwig and Steve Kollmansberger
 
 newtype Probability = P ProbRep
 type ProbRep = Float
 
+precision :: Int
+precision = 1
+
+showPfix :: ProbRep -> String
+showPfix f | precision==0 = showR 3 (round (f*100))++"%"
+           | otherwise    = showR (4+precision) (fromIntegral (round (f*100*d))/d)++"%"
+             where d = 10^precision
+
+-- fixed precision
+--
 showP :: ProbRep -> String
-showP pr = show (pr * 100) ++ " %" 
+showP = showPfix
 
 instance Show Probability where
   show (P p) = showP p
 
--- 
+--
 -- Distributions
--- 
+--
 newtype Dist a = D {unD :: [(a,ProbRep)]} deriving Show
 
 instance Functor Dist where
@@ -22,13 +35,16 @@ instance Functor Dist where
 
 instance Applicative Dist where
     pure x = D [(x,1)]
-    (D d) <*> (D d') = D [(x y, p*q) | (x,p) <- d, (y,q) <- d'] 
+    (D d) <*> (D d') = D [(x y, p*q) | (x,p) <- d, (y,q) <- d']
 
 -- bind is the dependent event combination
 instance Monad Dist where
   return = pure
   d >>= f  = D [(y,q*p) | (x,p) <- unD d, (y,q) <- unD (f x)]
-  fail _   = D []
+  --fail = Fail.fail
+
+instance MonadFail Dist where
+    fail _ = D []
 
 -- monadic composition of two functions
 (>@>) :: Monad m => (a -> m b) -> (b -> m c) -> a -> m c
@@ -42,6 +58,8 @@ type Spread a = [a] -> Dist a -- Turns a list of events into a distribution
 
 type Event a = a -> Bool -- predicate
 
+type Trans a = a -> Dist a
+
 -- sums a unfolded distribution
 sumP :: [(a,ProbRep)] -> ProbRep
 sumP = sum . map snd
@@ -54,13 +72,13 @@ sumP = sum . map snd
 joinWith :: (a -> b -> c) -> Dist a -> Dist b -> Dist c
 joinWith f (D d) (D d') = D [(f x y, p*q) | (x,p) <- d, (y,q) <- d']
 
--- combines two distibutions
+-- combines two distributions
 prod :: Dist a -> Dist b -> Dist (a,b)
 prod = joinWith (,)
 
 -- impossible distribution
 impossible :: Dist a
-impossible = fail "" 
+impossible = fail ""
 
 -- certain distribution
 certainly :: a -> Dist a
@@ -71,6 +89,23 @@ dice :: Int -> Dist [Int]
 dice 0 = certainly []
 dice n = joinWith (:) (uniform [1..6]) (dice (n-1))
 
+-- Calculating distributions ------------------------------------------------
+-- auxiliary functions for constructing and working with distributions
+onD :: ([(a,ProbRep)] -> [(a,ProbRep)]) -> Dist a -> Dist a
+onD f  = D . f . unD
+
+-- normalization = grouping
+--
+normBy ::  Ord a => (a -> a -> Bool) ->  Dist a -> Dist a
+normBy f = onD $ accumBy f . sort
+
+accumBy :: Num b => (a -> a -> Bool) -> [(a,b)] -> [(a,b)]
+accumBy f ((x,p):ys@((y,q):xs)) | f x y     = accumBy f ((x,p+q):xs)
+                                | otherwise = (x,p):accumBy f ys
+accumBy _ xs = xs
+
+norm ::  Ord a => Dist a -> Dist a
+norm = normBy (==)
 scale :: [(a,ProbRep)] -> Dist a
 scale xs = D (map (\(x,p)->(x,p/q)) xs)
            where q = sumP xs
@@ -83,6 +118,7 @@ shape f xs = scale (zip xs ps)
 
 uniform :: Spread a
 uniform = shape (const 1)
+-- -------------------------------------------------------------------------
 
 -- Selects one value from all the possible, excluding it from the final set
 selectOne :: Eq a => [a] -> Dist (a,[a])
@@ -99,5 +135,31 @@ mapD :: (a -> b) -> Dist a -> Dist b
 mapD = fmap
 
 -- repeteadly select elements from a collection
-select :: Eq a => Int -> [a] -> Dist [a]
+select :: Eq a => Int -> Trans [a]
 select n = mapD (reverse . p1) . selectMany n
+
+-- Randomization
+type R a = IO a
+type RChange a = a -> R a
+
+type RDist a = R (Dist a)
+type RTrans a = a -> RDist a
+
+-- picks a random value from a distribution
+pick :: Dist a -> R a
+pick d = randomRIO (0,1) >>= (return . selectP d)
+
+random :: Trans a -> RChange a
+random t = pick . t
+
+-- selecting from distributions
+--
+selectP :: Dist a -> ProbRep -> a
+selectP (D d) p = scanP p d
+
+scanP :: ProbRep -> [(a,ProbRep)] -> a
+scanP p ((x,q):ps) | p<=q || null ps = x
+                   | otherwise       = scanP (p-q) ps
+
+rDist :: Ord a => [R a] -> RDist a
+rDist = fmap (norm . uniform) . sequence
