@@ -121,3 +121,11 @@ minF = foldMap Min
 -- both max and min in one go
 maxminF :: (Num a, Ord a, Foldable t) => t a -> (Min a, Max a)
 maxminF = foldMap $ split Min Max
+
+-- any match
+anyF :: (Foldable t) => (a -> Bool) -> t a -> Any
+anyF p = foldMap $ Any . p
+
+-- all match
+allF :: (Foldable t) => (a -> Bool) -> t a -> All
+allF p = foldMap $ All . p
