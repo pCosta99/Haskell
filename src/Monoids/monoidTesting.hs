@@ -94,28 +94,30 @@ instance Foldable Tree where
         foldMap f (Node l k r) = foldMap f l <> f k <> foldMap f r
 
 tree = Node (Leaf 1) 7 (Node Empty 3 (Leaf 2))
+list = [7,2,8,4,5]
+pair = (4,9)
 
 -- Querying the tree so easily
 -- Sum
-sumT :: (Foldable t, Num a) => t a -> Sum a
-sumT = foldMap Sum
+sumF :: (Foldable t, Num a) => t a -> Sum a
+sumF = foldMap Sum
 
 -- Product
-productT :: (Foldable t, Num a) => t a -> Product a
-productT = foldMap Product
+productF :: (Foldable t, Num a) => t a -> Product a
+productF = foldMap Product
 
 -- to list
-toListT :: (Foldable t) => t a -> [a]
-toListT = foldMap singl
+toListF :: (Foldable t) => t a -> [a]
+toListF = foldMap singl
 
 -- max
-maxT :: (Num a, Ord a, Foldable t) => t a -> Max a
-maxT = foldMap Max
+maxF :: (Num a, Ord a, Foldable t) => t a -> Max a
+maxF = foldMap Max
 
 -- min
-minT :: (Num a, Ord a, Foldable t) => t a -> Min a
-minT = foldMap Min
+minF :: (Num a, Ord a, Foldable t) => t a -> Min a
+minF = foldMap Min
 
 -- both max and min in one go
-maxminT :: (Num a, Ord a, Foldable t) => t a -> (Min a, Max a)
-maxminT = foldMap $ split Min Max
+maxminF :: (Num a, Ord a, Foldable t) => t a -> (Min a, Max a)
+maxminF = foldMap $ split Min Max
