@@ -1,3 +1,5 @@
+-- Most of the code developed in this module was created accordingly to the article "Haskell Monoids and their Uses" from sigfpe blog.
+-- Link --> http://blog.sigfpe.com/2009/01/haskell-monoids-and-their-uses.html
 module MonoidTesting where
 
 import Data.Monoid
