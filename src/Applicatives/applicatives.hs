@@ -4,6 +4,7 @@ module ApplicativeTesting where
 
 import Control.Applicative
 import Control.Monad
+import Cp
 
 -- Redefining sequence on applicative scenarios (they're synonims)
 mySeq :: [IO a] -> IO [a]
@@ -125,6 +126,10 @@ instance (Applicative f, Applicative g) => Applicative (Fog f g) where
 -- Accumulating exceptions!!
 data Except err a = OK a | Failed err
 
+instance (Show a, Show err) => Show (Except err a) where
+        show (OK a) = show a
+        show (Failed err) = show err 
+
 instance Functor (Except err) where
         fmap f (OK a) = OK $ f a
         fmap f (Failed err) = Failed err 
@@ -137,4 +142,49 @@ instance Monoid err => Applicative (Except err) where
         Failed err1 <*> Failed err2 = Failed (err1 <> err2)
 
 -- Some examples
-evaluator p a = if (p a) then OK a else Failed "shit"  
+-- Evaluates something into an exception, not sure if it's a useful example
+evaluator :: (b -> Bool) -> (b -> d) -> (b -> c) -> b -> Except [c] d
+evaluator p d s = cond p (pure . d) (Failed . singl . s)
+
+-- Performing safe division with Except
+safeDivide :: Float -> Float -> Except [String] Float
+safeDivide a b = if (b /= 0) then pure (a/b) else Failed $ singl $ "Can't divide " ++ show a ++ " by 0!"
+
+-- Safe division expressed through evaluator
+evalSafeDivide :: Float -> Float -> Except [String] Float
+evalSafeDivide = (evaluator ((/= 0) . p2) (uncurry (/)) (\(x,y) -> show x ++ " can't be divided by 0!") .) . (,)
+
+-- Divide every pair of a list
+safeDivisionAcrossList :: [Float] -> [Float] -> Except [String] [Float]
+safeDivisionAcrossList = (myTraverse (uncurry safeDivide) .) . zip
+
+-- SIDE NOTE: Exploring point freeing double entry functions
+
+-- Just noticed this is pretty much what curry does. We want to pointfree curry to start
+no_pf_random_func :: ((a,b) -> c) -> a -> b -> c
+no_pf_random_func f a b = f $ (,) a b
+no_pf_random_func1 f a b = f `Cp.ap` (,) a b
+
+-- Let's start by removing one of the explicit parameters
+-- Nothing to fancy, the pair will be created by joining b with (,) a and then it is composed with f
+semi_pf_random_func :: ((a,b) -> c) -> a -> (b -> c)
+semi_pf_random_func f a = f . (,) a
+semi_pf_random_func1 f a = (.) f $ (,) a
+
+-- Now it gets tricky. At first glance one might expect that to remove another parameter we can just kick a out and go with f . (,)
+-- Turns out we can't as I just found out! Because of the following:
+-- Haskell is reading our function as func :: ((a,b) -> c) -> a -> (b -> c). We provide it with a function and a value and it gives us a partial function.
+-- The problem with this is that once we remove another parameter we are sitting on func :: ((a,b) -> c) -> (a -> (b -> c)). We feed it a function and gives us a partial function that will gives us yet another partial function.
+-- So, what's happening here is the following:
+-- (,) gets fed A  giving us --> (A x B) ^ B
+-- (f .) is then fed through composition with the partial function obtained above, giving us --> B ^ C
+almost_pf_random_func :: ((a,b) -> c) -> (a -> (b -> c))
+almost_pf_random_func f = (f .) . (,)
+almost_pf_random_func1 f = (.) (f .) (,)
+
+-- The full pointfreeee! Easy enough to break down in a similar approach.
+-- We now start with a C ^ (A x B) that we will feed to (.) which will give us --> 
+-- This is out of my league for now...
+damm_this_is_scary :: (((a,b) -> c) -> (a -> (b -> c)))
+damm_this_is_scary = (. (,)) . (.)
+damm_this_is_scary1 = (.) (. (,)) (.)
