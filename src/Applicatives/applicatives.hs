@@ -185,6 +185,7 @@ almost_pf_random_func1 f = (.) (f .) (,)
 -- The full pointfreeee! Easy enough to break down in a similar approach.
 -- We now start with a C ^ (A x B) that we will feed to (.) which will give us --> 
 -- This is out of my league for now...
+-- 2 hours later it's still very out of my league. The above is cake now though.
 damm_this_is_scary :: (((a,b) -> c) -> (a -> (b -> c)))
 damm_this_is_scary = (. (,)) . (.)
 damm_this_is_scary1 = (.) (. (,)) (.)
