@@ -188,7 +188,7 @@ import System.Random  hiding (split)
 import System.Process
 import GHC.IO.Exception
 import Graphics.Gloss
-import Control.Monad
+import Control.Monad as M
 import Control.Applicative hiding ((<|>))
 import Exp
 \end{code}
@@ -1014,24 +1014,37 @@ splay l t =  undefined
 \subsection*{Problema 3}
 
 \begin{code}
+bdtGC :: Bdt String
+bdtGC = Query ("Chuva na ida?",(b1,b2)) where
+  b1 = Dec "Precisa"
+  b2 = Query("Chuva no regresso?",(b1,b3))
+  b3 = Dec "Nao precisa"
+
 extLTree :: Bdt a -> LTree a
 extLTree = cataBdt g where
-  g = undefined
+  g = either Leaf (Fork . p2)
 
-inBdt = undefined
+inBdt = either Dec Query
 
-outBdt = undefined
+outBdt (Dec a) = i1 a
+outBdt (Query (s, (b1,b2))) = i2 (s, (b1,b2))
 
-baseBdt = undefined
-recBdt = undefined
+baseBdt f g = f -|- (id >< (g >< g))
+recBdt f = baseBdt id f 
 
-cataBdt = undefined
+cataBdt g = g . recBdt (cataBdt g) . outBdt
 
-anaBdt = undefined
+anaBdt g = inBdt . recBdt (anaBdt g) . g
 
 navLTree :: LTree a -> ([Bool] -> LTree a)
 navLTree = cataLTree g 
-  where g = undefined
+  where g = either (flip $ const Leaf) k
+        k (t1,t2) = Cp.cond ((== 0) . length) (Fork . split t1 t2) (Cp.cond head (t1 . tail) (t2 . tail))
+
+navLTreePf :: LTree a -> ([Bool] -> LTree a)
+navLTreePf = cataLTree g 
+  where g = either (flip $ const Leaf) (curry k)
+        k = Cp.cond ((== 0) . length . p2) (Fork . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) (Cp.cond (head . p2) (Cp.ap . (p1 >< tail)) (Cp.ap . (p2 >< tail))) 
 \end{code}
 
 
@@ -1050,6 +1063,10 @@ pbnavLTree = cataLTree g
 \subsection*{Problema 5}
 
 \begin{code}
+
+generator = fmap Pictures . M.join . fmap (sequence . map (\p -> (fmap $ put p) chooseT)) . permuta . geraPos >=> display janela white where
+  geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
+  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet2)) $ randomRIO (0::Integer,1::Integer)
 
 truchet1 = Pictures [ put (0,80) (Arc (-90) 0 40), put (80,0) (Arc 90 180 40) ]
 
