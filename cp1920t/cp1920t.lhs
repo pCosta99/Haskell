@@ -191,6 +191,7 @@ import Graphics.Gloss
 import Control.Monad as M
 import Control.Applicative hiding ((<|>))
 import Exp
+import Data.Maybe as Maybe
 \end{code}
 %endif
 
@@ -389,10 +390,10 @@ recursividade mútua}.
 \textbf{Sugestão:} Se tiver problemas em implementar
 com base em catamorfismos  estas duas últimas
 funções, tente implementar (com base em catamorfismos) as funções auxiliares
-\begin{code}
+\begin{spec}
 insOrd' :: (Ord a) => a -> BTree a -> (BTree a, BTree a)
 isOrd' :: (Ord a) => BTree a -> (Bool, BTree a)
-\end{code}
+\end{spec}
 tais que
 $insOrd' \> x = \langle insOrd \> x, id \rangle$ para todo o elemento $x$
 do tipo $a$
@@ -968,16 +969,26 @@ outras funções auxiliares que sejam necessárias.
 
 \subsection*{Problema 1}
 \begin{code}
+discollect1 :: (Ord b, Ord a) => [(b, [a])] -> [(b, a)]
+discollect1 = cataList $ either nil (sort . conc . (k >< id)) where
+  k (w,ws) = map (split (const w) id) ws
+
 discollect :: (Ord b, Ord a) => [(b, [a])] -> [(b, a)]
-discollect = undefined
+discollect = set . lstr  .! id
 
 dic_exp :: Dict -> [(String,[String])]
 dic_exp = collect . tar
 
-tar = cataExp g where
-  g = undefined
+tar = cataExp $ either (singl . split (const "") id) (uncurry g) where
+  g l = map (((++) l) >< id) . concat
 
-dic_rd = undefined
+dic_rd = ((Cp.cond zero_length (const Nothing) (Just . set) . hyloExp (either singl (concat . p2)) anaGene) .) . flip (,) where
+  zero_length = (==0) . length
+  anaGene = either v (i2 . k) . distl . (outExp >< id)
+  v = Cp.cond (zero_length . p2) (i1 . p1) (i2 . const ("",[]))
+  k = split (p1 . p1) (Cp.cond (zero_length . p1 . p1) (mapping id) c2)
+  c2 = Cp.cond ((>0) . length . p2) (Cp.cond ((uncurry (==) . (head >< head) . (p1 >< id))) (mapping tail) nil) nil -- um destes nil's ta a dar estrondo
+  mapping f = uncurry (map . flip (,)) . swap . (p2 >< f)
 
 dic_in = undefined
 
@@ -986,28 +997,63 @@ dic_in = undefined
 \subsection*{Problema 2}
 
 \begin{code}
-maisDir = cataBTree g
-  where g = undefined
+tree = Node (5,(t0,t2)) where
+  t0 = Node (2,(t1,Empty))
+  t1 = Node (1,(Empty,Empty))
+  t2 = Node (10,(t3,t4))
+  t3 = Node (7,(Empty,Empty))
+  t4 = Node (16,(Empty,Empty))
 
-maisEsq = cataBTree g
-  where g = undefined
+tree2 = Node (4,(t0,t1)) where
+  t0 = Node (2,(Empty,Empty))
+  t1 = Node (6,(Empty,Empty))
 
-insOrd' x = cataBTree g 
-  where g = undefined
+maisDir = cataBTree $ either (const Nothing) g
+  where g = Cp.cond (isNothing . p2 . p2) (Just . p1) (p2 . p2) 
 
-insOrd a x = undefined
+maisEsq = cataBTree $ either (const Nothing) g
+  where g = Cp.cond (isNothing . p1 . p2) (Just . p1) (p1 . p2)
 
-isOrd' = cataBTree g
-  where g = undefined
+insOrd a = p1 . (cataBTree $ split (either node_a k) (either (const Empty) (Node . (id >< (p2 >< p2))))) where
+  k = Cp.cond ((a >) . p1) (Node . (id >< (p2 >< p1))) (Node . (id >< (p1 >< p2)))
+  node_a = const (Node (a,(Empty,Empty)))
 
-isOrd = undefined
+-- Tradicional
+isOrd = p1 . cataBTree (either (const (True, Empty)) g) where
+  g = Cp.cond (uncurry (&&) . split checkRecursiveBools checkKids) give_true give_false
+  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< (p2 >< p2))
+  checkRecursiveBools = uncurry (&&) . (p1 >< p1) . p2  
+  higherThanLeft = Cp.cond (isNothing . p2) true (uncurry (>=) . (id >< Maybe.fromJust)) . (id >< p1)
+  lesserThanRight = Cp.cond (isNothing . p2) true (uncurry (<=) . (id >< Maybe.fromJust)) . (id >< p2)
+  give_true = split true Node . (id >< (p2 >< p2))
+  give_false = split false Node . (id >< (p2 >< p2))
 
+-- Rec mutua explicita
+isOrdRec :: (Ord a) => BTree a -> Bool
+isOrdRec = p1 . (cataBTree $ split (either true k) (either (const Empty) (Node . (id >< (p2 >< p2))))) where
+  k = Cp.cond (uncurry (&&) . split checkRecursiveBools checkKids) true false
+  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< (p2 >< p2))
+  checkRecursiveBools = uncurry (&&) . (p1 >< p1) . p2  
+  higherThanLeft = Cp.cond (isNothing . p2) true (uncurry (>=) . (id >< Maybe.fromJust)) . (id >< p1)
+  lesserThanRight = Cp.cond (isNothing . p2) true (uncurry (<=) . (id >< Maybe.fromJust)) . (id >< p2)
 
-rrot = undefined
+rrot Empty = Empty
+rrot t@(Node (root, (Empty, r))) = t
+rrot (Node (root, (((Node (lroot, (ll, lr)))),r))) = Node (lroot, (ll, Node (root, (lr, r))))
 
-lrot = undefined
+lrot Empty = Empty
+lrot t@(Node (root, (l, Empty))) = t
+lrot (Node (root, (l, Node (rroot, (rl, rr))))) = Node (rroot, (Node (root, (l,rl)), rr)) 
 
-splay l t =  undefined
+splay = flip $ cataBTree $ either (const . const Empty) (curry k) where
+  k = Cp.cond ((==0) . length . p2) f g
+  g = Cp.cond (head . p2) (rrot . f . (id >< tail)) (lrot . f . (id >< tail))
+  f = Node . (id >< (Cp.ap >< Cp.ap)) . split (p1 . p1) (split (p1 >< id) (p2 >< id) . (p2 >< id))
+
+splayPointWise :: [Bool] -> (BTree a -> BTree a)
+splayPointWise = flip $ cataBTree $ either (\x -> const Empty) k where
+  k t@(a,(t1,t2)) = Cp.cond ((== 0) . length) (tree id t) (Cp.cond head (rrot . tree tail t) (lrot . tree tail t))
+  tree f (a,(t1,t2)) = Node  . split (const a) (split t1 t2) . f
   
 \end{code}
 
@@ -1037,26 +1083,35 @@ cataBdt g = g . recBdt (cataBdt g) . outBdt
 anaBdt g = inBdt . recBdt (anaBdt g) . g
 
 navLTree :: LTree a -> ([Bool] -> LTree a)
-navLTree = cataLTree g 
-  where g = either (flip $ const Leaf) k
-        k (t1,t2) = Cp.cond ((== 0) . length) (Fork . split t1 t2) (Cp.cond head (t1 . tail) (t2 . tail))
+navLTree = cataLTree $ either (flip $ const Leaf) k where
+  k (t1,t2) = Cp.cond ((== 0) . length) (Fork . split t1 t2) (Cp.cond head (t1 . tail) (t2 . tail))
 
 navLTreePf :: LTree a -> ([Bool] -> LTree a)
-navLTreePf = cataLTree g 
-  where g = either (flip $ const Leaf) (curry k)
-        k = Cp.cond ((== 0) . length . p2) (Fork . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) (Cp.cond (head . p2) (Cp.ap . (p1 >< tail)) (Cp.ap . (p2 >< tail))) 
+navLTreePf = cataLTree $ either (flip $ const Leaf) (curry k) where
+  k = Cp.cond ((== 0) . length . p2) (Fork . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) (Cp.cond (head . p2) (Cp.ap . (p1 >< tail)) (Cp.ap . (p2 >< tail))) 
 \end{code}
 
 
 \subsection*{Problema 4}
 
 \begin{code}
-bnavLTree = cataLTree g
-  where g = undefined
+anita :: Bdt String
+anita = Query ("Segunda feira?",(b1,np)) where
+  b1 = Query ("Chuva na ida?",(p,b2))
+  b2 = Query("Chuva no regresso?",(p,np))
+  np = Dec "Nao precisa"
+  p = Dec "Precisa"
+
+bnavLTree = cataLTree $ either (flip $ const Leaf) (curry k)
+  where k = Cp.cond ((== 0) . countBTree . p2) (Fork . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) g
+        g = Cp.cond (either true p1 . outBTree . p2) (h p1 p1) (h p2 p2)
+        h d p = Cp.ap . (d >< (either (const Empty) (p . p2) . outBTree))
 
 
-pbnavLTree = cataLTree g
-  where g = undefined 
+pbnavLTree = cataLTree $ either (const . return . Leaf) (curry k)
+  where k = Cp.cond ((== 0) . countBTree . p2) (return . Fork . ((p1 . head . unD) >< (p1 . head . unD)) . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) undefined
+        g = Cp.cond (either true p1 . outBTree . p2) (h p1 p1) (h p2 p2)
+        h d p = Cp.ap . (d >< (either (const Empty) (p . p2) . outBTree))
 
 \end{code}
 
@@ -1081,7 +1136,7 @@ janela = InWindow
 
 ----- defs auxiliares -------------
 
-put  = uncurry Translate 
+put = uncurry Translate 
 
 -------------------------------------------------
 \end{code}
