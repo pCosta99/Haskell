@@ -970,11 +970,11 @@ outras funções auxiliares que sejam necessárias.
 \subsection*{Problema 1}
 \begin{code}
 discollect1 :: (Ord b, Ord a) => [(b, [a])] -> [(b, a)]
-discollect1 = cataList $ either nil (sort . conc . (k >< id)) where
+discollect1 = set . (cataList $ either nil (sort . conc . (k >< id))) where
   k (w,ws) = map (split (const w) id) ws
 
 discollect :: (Ord b, Ord a) => [(b, [a])] -> [(b, a)]
-discollect = set . lstr  .! id
+discollect = set . (lstr  .! id)
 
 dic_exp :: Dict -> [(String,[String])]
 dic_exp = collect . tar
@@ -990,13 +990,34 @@ dic_rd = ((Cp.cond zero_length (const Nothing) (Just . set) . hyloExp (either si
   c2 = Cp.cond ((>0) . length . p2) (Cp.cond ((uncurry (==) . (head >< head) . (p1 >< id))) (mapping tail) nil) nil -- um destes nil's ta a dar estrondo
   mapping f = uncurry (map . flip (,)) . swap . (p2 >< f)
 
-dic_in = undefined
+dic_in :: String -> String -> Dict -> Dict
+dic_in pal sin dic = hyloExp gc g ((pal,sin),dic) where
+  g = (p2 -|- f). distr . ((id >< id) >< outExp) 
+  f ((p,s),(t,d))
+    | (p == "") && (s == "") = (t , map (\x -> ((p,s),x)) d)                    
+    | (p == "") = (t , (("",s),Var s) : map (\x -> ((p,""),x)) d)               
+    | checkMatch (d,[head p]) == True = (t, map (\x -> chooseBranch ((x,p),s)) d )
+    | checkMatch (d,[head p]) == False = (t, auxIns(p,s) : map (\x -> (("",""),x)) d)  
+  gc = inExp . (id -|- (id >< (map inExp . set . map outExp)))
+
+chooseBranch :: ((Dict, String),String) -> ((String,String),Dict)
+chooseBranch ((d,p),s) =  either (const (("",""),d)) f $ (outExp d) where
+  f (t,dic) = if (head t == head p) then ((tail p,s),inExp $ i2 (t,dic))  else (("",""),inExp $ i2(t,dic)) 
+
+checkMatch :: ([Dict], String) -> Bool 
+checkMatch (d,s) = elem True $ map (either false ((==s) . p1)) $ map outExp d
+
+auxIns :: (String,String) -> ((String,String),Dict)
+auxIns ([p1],p2) = (("",""),Term [p1] [Var p2])
+auxIns (p,s) = ((tail p,s),Term [head p] [])
 
 \end{code}
 
 \subsection*{Problema 2}
 
 \begin{code}
+pow2 = M.join (><)
+
 tree = Node (5,(t0,t2)) where
   t0 = Node (2,(t1,Empty))
   t1 = Node (1,(Empty,Empty))
@@ -1014,26 +1035,28 @@ maisDir = cataBTree $ either (const Nothing) g
 maisEsq = cataBTree $ either (const Nothing) g
   where g = Cp.cond (isNothing . p1 . p2) (Just . p1) (p1 . p2)
 
-insOrd a = p1 . (cataBTree $ split (either node_a k) (either (const Empty) (Node . (id >< (p2 >< p2))))) where
+insOrd a = p1 . (cataBTree $ split (either node_a g) (either (const Empty) id_tree)) where
+  g = Cp.cond ((== a) . p1) id_tree k
   k = Cp.cond ((a >) . p1) (Node . (id >< (p2 >< p1))) (Node . (id >< (p1 >< p2)))
   node_a = const (Node (a,(Empty,Empty)))
+  id_tree = Node . (id >< pow2 p2)
 
 -- Tradicional
 isOrd = p1 . cataBTree (either (const (True, Empty)) g) where
   g = Cp.cond (uncurry (&&) . split checkRecursiveBools checkKids) give_true give_false
-  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< (p2 >< p2))
-  checkRecursiveBools = uncurry (&&) . (p1 >< p1) . p2  
+  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< pow2 p2)
+  checkRecursiveBools = uncurry (&&) . pow2 p1 . p2  
   higherThanLeft = Cp.cond (isNothing . p2) true (uncurry (>=) . (id >< Maybe.fromJust)) . (id >< p1)
   lesserThanRight = Cp.cond (isNothing . p2) true (uncurry (<=) . (id >< Maybe.fromJust)) . (id >< p2)
-  give_true = split true Node . (id >< (p2 >< p2))
-  give_false = split false Node . (id >< (p2 >< p2))
+  give_true = split true Node . (id >< pow2 p2)
+  give_false = split false Node . (id >< pow2 p2)
 
 -- Rec mutua explicita
 isOrdRec :: (Ord a) => BTree a -> Bool
-isOrdRec = p1 . (cataBTree $ split (either true k) (either (const Empty) (Node . (id >< (p2 >< p2))))) where
+isOrdRec = p1 . (cataBTree $ split (either true k) (either (const Empty) (Node . (id >< pow2 p2)))) where
   k = Cp.cond (uncurry (&&) . split checkRecursiveBools checkKids) true false
-  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< (p2 >< p2))
-  checkRecursiveBools = uncurry (&&) . (p1 >< p1) . p2  
+  checkKids = uncurry (&&) . split higherThanLeft lesserThanRight . (id >< (maisDir >< maisEsq)) . (id >< pow2 p2)
+  checkRecursiveBools = uncurry (&&) . pow2 p1 . p2  
   higherThanLeft = Cp.cond (isNothing . p2) true (uncurry (>=) . (id >< Maybe.fromJust)) . (id >< p1)
   lesserThanRight = Cp.cond (isNothing . p2) true (uncurry (<=) . (id >< Maybe.fromJust)) . (id >< p2)
 
@@ -1048,7 +1071,7 @@ lrot (Node (root, (l, Node (rroot, (rl, rr))))) = Node (rroot, (Node (root, (l,r
 splay = flip $ cataBTree $ either (const . const Empty) (curry k) where
   k = Cp.cond ((==0) . length . p2) f g
   g = Cp.cond (head . p2) (rrot . f . (id >< tail)) (lrot . f . (id >< tail))
-  f = Node . (id >< (Cp.ap >< Cp.ap)) . split (p1 . p1) (split (p1 >< id) (p2 >< id) . (p2 >< id))
+  f = Node . (id >< pow2 Cp.ap) . split (p1 . p1) (split (p1 >< id) (p2 >< id) . (p2 >< id))
 
 splayPointWise :: [Bool] -> (BTree a -> BTree a)
 splayPointWise = flip $ cataBTree $ either (\x -> const Empty) k where
@@ -1119,13 +1142,17 @@ pbnavLTree = cataLTree $ either (const . return . Leaf) (curry k)
 
 \begin{code}
 
-generator = fmap Pictures . M.join . fmap (sequence . map (\p -> (fmap $ put p) chooseT)) . permuta . geraPos >=> display janela white where
+generator = fmap Pictures . M.join . fmap permuta . sequence . map (\p -> (fmap $ put p) chooseT) . geraPos >=> display janela white where
   geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
-  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet2)) $ randomRIO (0::Integer,1::Integer)
+  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
 
 truchet1 = Pictures [ put (0,80) (Arc (-90) 0 40), put (80,0) (Arc 90 180 40) ]
 
 truchet2 = Pictures [ put (0,0) (Arc 0 90 40), put (80,80) (Arc 180 (-90) 40) ]
+
+generatorChecker = fmap (show . map (uncurry (==))) . uncurry (liftM2 zip) . (M.join >< id) . (fmap permuta >< id) . split id id . sequence . map (flip fmap chooseT . put) . geraPos where  
+  geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
+  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
 
 --- janela para visualizar:
 
