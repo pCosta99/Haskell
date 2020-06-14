@@ -987,7 +987,7 @@ dic_rd = ((Cp.cond zero_length (const Nothing) (Just . set) . hyloExp (either si
   anaGene = either v (i2 . k) . distl . (outExp >< id)
   v = Cp.cond (zero_length . p2) (i1 . p1) (i2 . const ("",[]))
   k = split (p1 . p1) (Cp.cond (zero_length . p1 . p1) (mapping id) c2)
-  c2 = Cp.cond ((>0) . length . p2) (Cp.cond ((uncurry (==) . (head >< head) . (p1 >< id))) (mapping tail) nil) nil -- um destes nil's ta a dar estrondo
+  c2 = Cp.cond ((>0) . length . p2) (Cp.cond (uncurry (==) . (p1 >< id)) (mapping tail) nil) nil 
   mapping f = uncurry (map . flip (,)) . swap . (p2 >< f)
 
 dic_in :: String -> String -> Dict -> Dict
@@ -1073,11 +1073,17 @@ splay = flip $ cataBTree $ either (const . const Empty) (curry k) where
   g = Cp.cond (head . p2) (rrot . f . (id >< tail)) (lrot . f . (id >< tail))
   f = Node . (id >< pow2 Cp.ap) . split (p1 . p1) (split (p1 >< id) (p2 >< id) . (p2 >< id))
 
+k :: ( ( a, ( [Bool] -> BTree a, [Bool] -> BTree a ) ) , [Bool]) -> BTree a
+k = undefined
+
 splayPointWise :: [Bool] -> (BTree a -> BTree a)
 splayPointWise = flip $ cataBTree $ either (\x -> const Empty) k where
   k t@(a,(t1,t2)) = Cp.cond ((== 0) . length) (tree id t) (Cp.cond head (rrot . tree tail t) (lrot . tree tail t))
-  tree f (a,(t1,t2)) = Node  . split (const a) (split t1 t2) . f
-  
+  tree f (a,(t1,t2)) = Node . split (const a) (split t1 t2) . f
+
+splayPointWiseWithCurry :: [Bool] -> (BTree a -> BTree a)
+splayPointWiseWithCurry = flip $ cataBTree $ either (\x -> const Empty) (curry k) where
+  k (t@(a,(t1,t2)),l@(x:xs)) = if length l == 0 then Node (a,(t1 l,t2 l)) else if x then (rrot $ (Node (a,(t1 xs,t2 xs)))) else (lrot $ (Node (a,(t1 xs,t2 xs))))
 \end{code}
 
 \subsection*{Problema 3}
@@ -1142,7 +1148,7 @@ pbnavLTree = cataLTree $ either (const . return . Leaf) (curry k)
 
 \begin{code}
 
-generator = fmap Pictures . M.join . fmap permuta . sequence . map (\p -> (fmap $ put p) chooseT) . geraPos >=> display janela white where
+generator = fmap Pictures . M.join . fmap permuta . sequence . map (flip fmap chooseT . put) . geraPos >=> display janela white where
   geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
   chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
 

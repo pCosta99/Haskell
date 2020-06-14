@@ -157,6 +157,8 @@ instance Strong []
 
 instance Strong Maybe
 
+instance (Monoid a) => Strong ((,) a)
+
 dstr :: Strong m => (m a, m b) -> m (a, b)       --- double strength
 dstr = rstr .! lstr
 
