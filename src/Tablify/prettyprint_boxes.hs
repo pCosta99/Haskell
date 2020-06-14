@@ -63,9 +63,19 @@ tablify ti = vcat left $ wrap_n_fill (horizontal_sep ti, get_data_rdy ti) where
     horizontal_sep = hcat left . map T.text . curry wrap_n_fill cs . map (flip replicate hs) . cell_length
     get_data_rdy = map (hcat left . map T.text . curry wrap_n_fill vs . map (uncurry (getPadding ti)) . zip c_length) . info
 
+-- Sets the text padding as left 
 t_pad_left ti = ti { padding = LeftP }    
+-- Sets the text padding as center
 t_pad_center ti = ti { padding = CenterP }
+-- Sets the text padding as right
 t_pad_right ti = ti { padding = RightP }
+
+-- Sets the vertical separator as the symbol given
+set_v_sep sep ti = ti { v_sep_char = sep }
+-- Sets the horizontal separator as the symbol given
+set_h_sep sep ti = ti { h_sep_char = sep }
+-- Sets the corner separator as the symbol given
+set_c_sep sep ti = ti { c_sep_char = sep }
 
 {--------------------------------------------------------- MAIN FUNCTIONS ------------------------------------------------------------
     Main functions of the module.
