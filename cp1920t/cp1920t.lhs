@@ -1069,21 +1069,18 @@ lrot t@(Node (root, (l, Empty))) = t
 lrot (Node (root, (l, Node (rroot, (rl, rr))))) = Node (rroot, (Node (root, (l,rl)), rr)) 
 
 splay = flip $ cataBTree $ either (const . const Empty) (curry k) where
-  k = Cp.cond ((==0) . length . p2) f g
-  g = Cp.cond (head . p2) (rrot . f . (id >< tail)) (lrot . f . (id >< tail))
-  f = Node . (id >< pow2 Cp.ap) . split (p1 . p1) (split (p1 >< id) (p2 >< id) . (p2 >< id))
-
-k :: ( ( a, ( [Bool] -> BTree a, [Bool] -> BTree a ) ) , [Bool]) -> BTree a
-k = undefined
+  k = Cp.cond ((==0) . length . p2) (f id id) g
+  g = Cp.cond (head . p2) (rrot . f tail nil) (lrot . f nil tail)
+  f a b = Node . (id >< pow2 Cp.ap) . split (p1 . p1) (split (p1 >< a) (p2 >< b) . (p2 >< id))
 
 splayPointWise :: [Bool] -> (BTree a -> BTree a)
 splayPointWise = flip $ cataBTree $ either (\x -> const Empty) k where
-  k t@(a,(t1,t2)) = Cp.cond ((== 0) . length) (tree id t) (Cp.cond head (rrot . tree tail t) (lrot . tree tail t))
-  tree f (a,(t1,t2)) = Node . split (const a) (split t1 t2) . f
+  k t@(a,(t1,t2)) = Cp.cond ((== 0) . length) (tree id id t) (Cp.cond head (rrot . tree tail nil t) (lrot . tree nil tail t))
+  tree f g (a,(t1,t2)) = Node . split (const a) (split (t1 . f) (t2 . g))
 
 splayPointWiseWithCurry :: [Bool] -> (BTree a -> BTree a)
 splayPointWiseWithCurry = flip $ cataBTree $ either (\x -> const Empty) (curry k) where
-  k (t@(a,(t1,t2)),l@(x:xs)) = if length l == 0 then Node (a,(t1 l,t2 l)) else if x then (rrot $ (Node (a,(t1 xs,t2 xs)))) else (lrot $ (Node (a,(t1 xs,t2 xs))))
+  k (t@(a,(t1,t2)),l) = if length l == 0 then Node (a,(t1 l,t2 l)) else if head l then (rrot $ Node (a,(t1 $ tail l,t2 []))) else (lrot $ Node (a,(t1 [],t2 $ tail l)))
 \end{code}
 
 \subsection*{Problema 3}
@@ -1137,10 +1134,11 @@ bnavLTree = cataLTree $ either (flip $ const Leaf) (curry k)
         h d p = Cp.ap . (d >< (either (const Empty) (p . p2) . outBTree))
 
 
-pbnavLTree = cataLTree $ either (const . return . Leaf) (curry k)
-  where k = Cp.cond ((== 0) . countBTree . p2) (return . Fork . ((p1 . head . unD) >< (p1 . head . unD)) . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) undefined
-        g = Cp.cond (either true p1 . outBTree . p2) (h p1 p1) (h p2 p2)
-        h d p = Cp.ap . (d >< (either (const Empty) (p . p2) . outBTree))
+pbnavLTree = cataLTree $ either (const . return . Leaf) (curry $ Cp.cond ((== 0) . countBTree . p2) k g)
+  where k = return . Fork . pow2 (p1 . head . unD) . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)
+        g = merge_dists . split (p1 . p2) (pow2 Cp.ap . split (p1 >< (p1 . p2)) (p2 >< (p2 . p2))) . (id >< (either undefined id . outBTree))
+        merge_dists = D . uncurry (++) . pow2 mp . split (p1 >< p1) (p2 >< p2) . (split (id ??) (not ??) >< pow2 unD)
+        mp (P p, l) = map (id >< (*p)) l
 
 \end{code}
 
