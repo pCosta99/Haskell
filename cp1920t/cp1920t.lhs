@@ -1041,6 +1041,17 @@ insOrd a = p1 . (cataBTree $ split (either node_a g) (either (const Empty) id_tr
   node_a = const (Node (a,(Empty,Empty)))
   id_tree = Node . (id >< pow2 p2)
 
+isOrd'' :: (Ord a) => BTree a -> (Bool, BTree a)
+isOrd'' = cataBTree g where
+  g = either (split true (const Empty)) (split k f)
+  f (a, ((_,l),(_,r))) = Node (a,(l,r))
+  k (a, ((False,l),(_,r))) = False
+  k (a, ((_,l),(False,r))) = False 
+  k (a, ((_,Node (xl,_)),(_,Node (xr,_)))) = a >= xl && a <= xr
+  k (a, ((_,Empty),(_,Node (xr,_)))) = a <= xr
+  k (a, ((_,Node (xl,_)),(_,Empty))) = a >= xl
+  k (a, ((_,Empty),(_,Empty))) = True
+
 -- Tradicional
 isOrd = p1 . cataBTree (either (const (True, Empty)) g) where
   g = Cp.cond (uncurry (&&) . split checkRecursiveBools checkKids) give_true give_false
@@ -1112,6 +1123,10 @@ navLTree :: LTree a -> ([Bool] -> LTree a)
 navLTree = cataLTree $ either (flip $ const Leaf) k where
   k (t1,t2) = Cp.cond ((== 0) . length) (Fork . split t1 t2) (Cp.cond head (t1 . tail) (t2 . tail))
 
+navLTreeCurry :: LTree a -> ([Bool] -> LTree a)
+navLTreeCurry = cataLTree $ either (flip $ const Leaf) (curry k) where
+  k ((t1,t2),l) = if length l == 0 then Fork ((t1 l),(t2 l)) else if head l then t1 $ tail l else t2 $ tail l
+
 navLTreePf :: LTree a -> ([Bool] -> LTree a)
 navLTreePf = cataLTree $ either (flip $ const Leaf) (curry k) where
   k = Cp.cond ((== 0) . length . p2) (Fork . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)) (Cp.cond (head . p2) (Cp.ap . (p1 >< tail)) (Cp.ap . (p2 >< tail))) 
@@ -1138,7 +1153,8 @@ pbnavLTree = cataLTree $ either (const . return . Leaf) (curry $ Cp.cond ((== 0)
   where k = return . Fork . pow2 (p1 . head . unD) . (Cp.ap >< Cp.ap) . split (p1 >< id) (p2 >< id)
         g = merge_dists . split (p1 . p2) (pow2 Cp.ap . split (p1 >< (p1 . p2)) (p2 >< (p2 . p2))) . (id >< (either undefined id . outBTree))
         merge_dists = D . uncurry (++) . pow2 mp . split (p1 >< p1) (p2 >< p2) . (split (id ??) (not ??) >< pow2 unD)
-        mp (P p, l) = map (id >< (*p)) l
+        mp = uncurry (map . (id ><) . (*) . extract)
+        extract (P p) = p
 
 \end{code}
 
@@ -1146,17 +1162,25 @@ pbnavLTree = cataLTree $ either (const . return . Leaf) (curry $ Cp.cond ((== 0)
 
 \begin{code}
 
-generator = fmap Pictures . M.join . fmap permuta . sequence . map (flip fmap chooseT . put) . geraPos >=> display janela white where
-  geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
-  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
+generator = fmap Pictures . M.join . fmap permuta . sequence . map (flip fmap createT . put) . geraPos >=> display janela white where
+  geraPos (a,b) = map (\(l,r) -> (a*(-40) + l*80,b*(-40) + r*80)) $ [(x,y) | x <- [0..a-1], y <- [0..b-1]] 
+  createT = fmap (Cp.cond (== 0) (const truchet1) (const truchet2)) $ randomRIO (0::Integer,1::Integer)
+
+ultraGen = fmap Pictures . M.join . fmap permuta . uncurry (liftM3 zipWith $ return put) . split geraPos createT >=> display janela white where
+  geraPos (x,y) = return $ map (pow2 toFloat) $ map (\(l,r) -> (x*(-40) + l*80,y*(-40) + r*80)) $ [(a,b)| a<-[0..(x-1)], b<-[0..(y-1)]]
+  createT = flip replicateM (fmap (Cp.cond (== 0) (const truchet1) (const truchet2)) $ randomRIO (0::Integer,1::Integer)) . (uncurry (*))
 
 truchet1 = Pictures [ put (0,80) (Arc (-90) 0 40), put (80,0) (Arc 90 180 40) ]
 
 truchet2 = Pictures [ put (0,0) (Arc 0 90 40), put (80,80) (Arc 180 (-90) 40) ]
 
-generatorChecker = fmap (show . map (uncurry (==))) . uncurry (liftM2 zip) . (M.join >< id) . (fmap permuta >< id) . split id id . sequence . map (flip fmap chooseT . put) . geraPos where  
-  geraPos (a,b) = map ((80*)><(80*)) $ [(x,y) | x <- [-a..a], y <- [-b..b]] 
-  chooseT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
+generatorChecker = fmap show . uncurry (liftM3 zipWith $ return (==)) . (M.join >< id) . (fmap permuta >< id) . split id id . sequence . map (flip fmap createT . put) . geraPos where  
+  geraPos (x,y) = map (\(l,r) -> (x*(-40) + l*80,y*(-40) + r*80)) $ [(a,b)| a<-[0..(x-1)], b<-[0..(y-1)]]
+  createT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
+
+generatorChecker = fmap show . uncurry (liftM3 zipWith $ return (==)) . (M.join >< id) . (fmap permuta >< id) . split id id . sequence . map (flip fmap createT . put) . geraPos where  
+  geraPos (x,y) = map (\(l,r) -> (x*(-40) + l*80,y*(-40) + r*80)) $ [(a,b)| a<-[0..(x-1)], b<-[0..(y-1)]]
+  createT = fmap (Cp.cond (== 0) (const truchet1) (const truchet1)) $ randomRIO (0::Integer,1::Integer)
 
 --- janela para visualizar:
 

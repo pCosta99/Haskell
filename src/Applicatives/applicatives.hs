@@ -164,12 +164,14 @@ safeDivisionAcrossList = (myTraverse (uncurry safeDivide) .) . zip
 no_pf_random_func :: ((a,b) -> c) -> a -> b -> c
 no_pf_random_func f a b = f $ (,) a b
 no_pf_random_func1 f a b = f `Cp.ap` (,) a b
+no_pf_random_func2 f a b = f (a,b)
 
 -- Let's start by removing one of the explicit parameters
 -- Nothing to fancy, the pair will be created by joining b with (,) a and then it is composed with f
 semi_pf_random_func :: ((a,b) -> c) -> a -> (b -> c)
 semi_pf_random_func f a = f . (,) a
 semi_pf_random_func1 f a = (.) f $ (,) a
+almost_pf_random_func2 f a = (. (,)) . (.) $ a
 
 -- Now it gets tricky. At first glance one might expect that to remove another parameter we can just kick a out and go with f . (,)
 -- Turns out we can't as I just found out! Because of the following:
@@ -189,3 +191,5 @@ almost_pf_random_func1 f = (.) (f .) (,)
 damm_this_is_scary :: (((a,b) -> c) -> (a -> (b -> c)))
 damm_this_is_scary = (. (,)) . (.)
 damm_this_is_scary1 = (.) (. (,)) (.)
+-- Eta-expansion
+damm_this_is_scary_eta = (\y -> (y . \z k -> (z,k))) . (\x1 x2 -> x1 . x2)

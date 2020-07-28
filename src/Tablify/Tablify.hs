@@ -1,4 +1,4 @@
-module TI where
+module Tablify (TableInfo, createTableInfo, tablify, printT) where
 
 import Text.PrettyPrint.Boxes as T
 import Data.List
@@ -84,7 +84,7 @@ set_c_sep sep ti = ti { c_sep_char = sep }
 -}
 
 -- Main function of the module. For a given Matrix of A it creates a structure that can be used to print the matrix in tabular format
-createTableInfo :: (Show a) => Matrix a -> TableInfo                      
+createTableInfo :: (Show a) => [[a]] -> TableInfo                      
 createTableInfo m = TI info cell_length left lines columns '|' '-' '+' CenterP where
     info = map (map show) m
     cell_length = map maximum $ transpose $ map (map length) info

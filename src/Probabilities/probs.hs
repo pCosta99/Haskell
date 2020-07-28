@@ -41,11 +41,11 @@ instance Applicative Dist where
 instance Monad Dist where
   return = pure
   d >>= f  = D [(y,q*p) | (x,p) <- unD d, (y,q) <- unD (f x)]
-  --fail = Fail.fail
-
+  fail _ = D []
+{-
 instance MonadFail Dist where
     fail _ = D []
-
+-}
 -- monadic composition of two functions
 (>@>) :: Monad m => (a -> m b) -> (b -> m c) -> a -> m c
 f >@> g = (>>= g) . f
@@ -124,6 +124,10 @@ uniform = shape (const 1)
 selectOne :: Eq a => [a] -> Dist (a,[a])
 selectOne c = uniform [(v, filter (/= v) c) | v <- c]
 
+-- Selects one value from all the possible, without excluding it from the final set
+selectOneAndKeep :: Eq a => [a] -> Dist (a,[a])
+selectOneAndKeep c = uniform [(v, c) | v <- c]
+
 -- Selects n values from the base set, excluding them from the final set
 selectMany :: Eq a => Int -> [a] -> Dist ([a],[a])
 selectMany 0 c = return ([],c)
@@ -131,12 +135,23 @@ selectMany n c = do (x,c1) <- selectOne c
                     (xs,c2) <- selectMany (n-1) c1
                     return (x:xs,c2)
 
+-- Selects n values from the base set, without excluding them from the final set
+selectManyAndKeep :: Eq a => Int -> [a] -> Dist ([a],[a])
+selectManyAndKeep 0 c = return ([],c)
+selectManyAndKeep n c = do (x,c1) <- selectOneAndKeep c
+                           (xs,c2) <- selectManyAndKeep (n-1) c1
+                           return (x:xs,c2)
+
 mapD :: (a -> b) -> Dist a -> Dist b
 mapD = fmap
 
 -- repeteadly select elements from a collection
 select :: Eq a => Int -> Trans [a]
 select n = mapD (reverse . p1) . selectMany n
+
+-- repeteadly select elements from a collection without removing them
+selectWhileKeeping :: Eq a => Int -> Trans [a]
+selectWhileKeeping n = mapD (reverse . p1) . selectManyAndKeep n
 
 -- Randomization
 type R a = IO a
