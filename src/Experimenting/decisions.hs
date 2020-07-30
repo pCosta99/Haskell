@@ -23,8 +23,11 @@ First attempt (27-07-2020):
 1. After a day of thinking I can see some ressemblenses of the idea above in rose trees. If the element they hold happens to be a evaluator function that tells you the next tree to choose it seems to maybe work.
 Reminder: Rose a = Node a [Rose a]
 So, as mentioned, basically i'll try to use a rose tree with a function that will return a index. Definetely doesn't seems perfect but it's a start.
+-}
 
-Final observations:
+{-
+Second day (30-07-2020)
+Won't deploy much time today, will do a very simple example to check how we doing right now, a simple menu with some options
 -}
 
 {- 
@@ -86,7 +89,7 @@ rose_t3 = Rose g [] where
 runRoseMonadic :: Monad m => a -> Rose (a -> m (a, Int)) -> m a
 runRoseMonadic state (Rose f l) = do
     (new, index) <- f state
-    if length l == 0 then return new else runRoseMonadic new (l!!index)
+    if length l == 0 then return new else runRoseMonadic new (l!!(index-1))
 
 {- 
 All that gotta change is pretty much after the ap I guess. Since it's the point where we have recursion and that's what went fucked. 
@@ -104,3 +107,21 @@ The most important one right now is a test. We need to check how we doing in ter
 No clue, but it should be getting there.
 Also wanna figure out what I can actually do with those cata's, ana's and hylo's, they should be fun to alter the tree in some way.
 -}
+
+{-
+Aight, so, beggining of day 2. I don't really need to pass input here since it's the actual functions who will be asking stuff... 
+We'll pass void, aka (), just because we need to. Ideally it should be some sort of state, so, actually, let's define a void state first.
+-}
+
+data State = S ()
+
+state = S ()
+
+-- Ok, so, i was writing down this signature and just noticed that this looks a lot like State monad... Might need to check how it comes together. Day 3 goal.
+simple_menu :: Rose (State -> IO (State, Int))
+simple_menu = Rose start [Rose options [], Rose quit [], Rose cheer_up []] where
+    start s = putStrLn "1. Options" >> putStrLn "2. Quit" >> putStrLn "3. Cheer up!" >> getCharAndReact s
+    options s = putStrLn "1. Augment volume" >> putStrLn "2. Decrease volume" >> getCharAndReact s
+    quit s = putStrLn "Bye!!" >> return (s, 0)
+    cheer_up s = putStrLn "Cheer up bro!" >> return (s, 0)
+    getCharAndReact s = getLine >>= (return . split (const s) (\x -> read x :: Int))
