@@ -1,4 +1,4 @@
-## My take on a Haskell approach to develop something similar to InstaLoader
+## My take on a Haskell approach to develop something similar to [InstaLoader](https://instaloader.github.io)
 
 You can check out my [blog post](https://pcosta99.github.io/posts/InstaLoader) for a lot more info on why I did this, so here I'll just focus on how you can test it out if you're feeling like it!
 
