@@ -1,10 +1,10 @@
 
 -- (c) MP-I (1998/9-2006/7) and CP (2005/6-2018/9)
 
-module Libs.List  where
+module List  where
 
-import Libs.Cp
-import Libs.Nat
+import Cp
+import Nat
 
 -- (1) Datatype definition -----------------------------------------------------
 
@@ -205,4 +205,12 @@ stream f g c x = case f c of
                       a:x' -> stream f g (g c a) x'
                       []   -> []
 
+-- heterogeneous lists ---------------------------------------------------------
+
+join :: ([a], [b]) -> [Either a b]
+join (a, b) = map i1 a ++ map i2 b
+
+sep = split s1 s2 where
+   s1 []=[]; s1(Left a:x) = a:s1 x; s1(Right b:x)=s1 x
+   s2 []=[]; s2(Left a:x) = s2 x; s2(Right b:x)=b:s2 x
 ---- end of List.hs ------------------------------------------------------------

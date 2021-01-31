@@ -1,7 +1,7 @@
 
 -- (c) MP-I (1998/9-2006/7) and CP (2005/6-2018/9)
 
-module Libs.Cp where
+module Cp where
 
 infix 5  ><
 infix 4  -|-
@@ -196,6 +196,10 @@ add = uncurry (+)
 mul = uncurry (*)
 
 conc = uncurry (++)
+
+or = uncurry (||)
+
+and = uncurry (&&)
 
 true = const True
 

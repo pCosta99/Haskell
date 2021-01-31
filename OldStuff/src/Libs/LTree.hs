@@ -1,12 +1,12 @@
 
 -- (c) MP-I (1998/9-2006/7) and CP (2005/6-2018/9)
 
-module Libs.LTree where
+module LTree where
 
-import Libs.Cp
+import Cp
 import Data.Monoid
 import Control.Applicative
-import Libs.List
+import List
 
 -- (1) Datatype definition -----------------------------------------------------
 

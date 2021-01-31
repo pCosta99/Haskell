@@ -2,9 +2,9 @@
 
 -- (c) MP-I (1998/9-2006/7) and CP (2005/6-2018/9)
 
-module Libs.Nat where
+module Nat where
 
-import Libs.Cp
+import Cp
 
 -- (1) Datatype definition -----------------------------------------------------
 

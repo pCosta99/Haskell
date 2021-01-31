@@ -43,7 +43,7 @@ class MyTraversable t where
         dist = myTraverse id
 
 -- 4) Exploring the connection between Monoids and Applicatives
--- Accy is a phantom type because the value it holds has nothing to do with a, yet, it yields the baility to accumulate stuff
+-- Accy is a phantom type because the value it holds has nothing to do with a, yet, it yields the ability to accumulate stuff
 newtype Accy o a = Acc{acc :: o}
 
 -- f has no effect in acc
@@ -54,7 +54,7 @@ instance Monoid o => Applicative (Accy o) where
         pure _ = Acc mempty
         Acc o1 <*> Acc o2 = Acc (o1 <> o2) 
 
--- Allows us to accumulate values accoring to a certain pure function
+-- Allows us to accumulate values according to a certain pure function
 accumulate :: (MyTraversable t, Monoid o) => (a -> o) -> t a -> o
 accumulate f = acc . myTraverse (Acc . f)
 
@@ -96,7 +96,7 @@ any p = might . accumulate (Might . p)
 genElem :: (Eq a) => MyTraversable t => a -> t a -> Bool
 genElem a = ApplicativeTesting.any ((==) a)
 
--- We can now define the any operation on a MyTraversable instance using Musty
+-- We can now define the all operation on a MyTraversable instance using Musty
 all :: MyTraversable t => (a -> Bool) -> t a -> Bool
 all p = must . accumulate (Must . p)
 

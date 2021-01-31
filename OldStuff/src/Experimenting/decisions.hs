@@ -115,7 +115,7 @@ Aight, so, beggining of day 2. I don't really need to pass input here since it's
 We'll pass void, aka (), just because we need to. Ideally it should be some sort of state, so, actually, let's define a void state first.
 -}
 
-data TState = S Int
+data TState = S Int deriving Show
 
 init_state = S 0
 
@@ -239,10 +239,11 @@ Looking better, let's give it a shot with the last example.
 -- Let's try rewriting simple_menu using this state and adding some info into it maybe
 ez_menu :: Rose (Node TState IO ()) -- could not be (), that's the beauty of this, any info would do
 ez_menu = Rose start [Rose options [Rose quit []], Rose quit [], Rose cheer_up []] where
-    start = N (runStateT increment_state_counter) ez_start_menu get_value_and_choose
-    options = N (runStateT increment_state_counter) ez_option_menu get_value_and_choose
-    quit = N (runStateT increment_state_counter) (const $ liftIO $ putStrLn "Bye!") do_nothing
-    cheer_up = N (runStateT increment_state_counter) (const $ liftIO $ putStrLn "Cheer up!") do_nothing
+    start = N f ez_start_menu get_value_and_choose
+    options = N f ez_option_menu get_value_and_choose
+    quit = N f (const $ liftIO $ putStrLn "Bye!") do_nothing
+    cheer_up = N f (const $ liftIO $ putStrLn "Cheer up!") do_nothing
+    f = runStateT increment_state_counter
 
 ez_start_menu :: IO ((), TState) -> IO ()
 ez_start_menu s = do
@@ -263,4 +264,62 @@ do_nothing = lstr . split (const 0) (fmap p2)
 
 {-
 The code reduction is more than obvious. Pretty cool. Errors coming up next.
+-}
+
+{-
+Day 3 (30-07-2020):
+In all honesty, I have no idea how to approach error handling. First of all, what am I calling an error even? 
+At a given point, on the above example, we are reading a value from the console. So, two bad things can happen here, not being given the type we want or exceding some bound.
+Both of these should be handled properly and seemslessly. But it should be the end-user the one who chooses how to deal with the error... So we add another function to each node? Allowing for a set of errors to be fixed? 
+Sounds like a solid idea maybe.
+We'll go with that for now.
+Let's start by creating a new node, which we will call SafeNode for obvious reasons.
+At a first glance, the errors I mentioned above happen in the react phase. But it could also be interesting to allow errors after act...
+Out itself acts a bit as a error handling mechanism if we want too. Let's move on.
+-}
+
+data SafeNode a m b e = NS {
+    s_act :: a -> m (b,a), -- acts on the initial state (runStateT type)
+    s_out :: m (b,a) -> m (), -- Able to output necessary information
+    s_react :: m (b,a) -> m (Int, a), -- reacts to the new state and to the extra information given
+    s_error :: m (Int, a) ->  m (Either (e,a) (Int, a)) -- checks for an error before choosing next hop
+}
+
+run_rose_m_safe :: Strong m => a -> Rose (SafeNode a m b e) -> m a
+run_rose_m_safe state (Rose n l) = do
+    (e,_) <- dstr $ split (s_error n . s_react n) (s_out n) (s_act n state)
+    either (return . p2) (cond (\x -> length l == 0) (return . p2) (uncurry run_rose_m_safe . (id><(l!!)) . swap)) e
+
+{-
+I keep getting surprised when this compiles, for real, lmao.
+Anyway, we process the error with an either. Wanna test it real quick, we'll build on the above example.
+Let's build a custom error data type because that's how I think it will shine the most.
+Hmm.. If an error happens, we should probably give that error to the user.. So we should be returning not exclusively the new state, but, in case of error, the error plus the state?
+That makes things weirder tho. I'll refactor it into a new definition just because.
+-}
+
+run_rose_safe :: Strong m => a -> Rose (SafeNode a m b e) -> m (Either (e,a) a)
+run_rose_safe state (Rose n l) = do
+    (e,_) <- dstr $ split (s_error n . s_react n) (s_out n) (s_act n state)
+    either (return . i1) (cond (\x -> length l == 0) (return . i2 . p2) (uncurry run_rose_safe . (id><(l!!)) . swap)) e
+
+data SomeError = InvalidOption | YouAreDumb | SomethingElseBroken deriving Show
+
+ez_safe_menu :: Rose (SafeNode TState IO () SomeError) -- could not be (), that's the beauty of this, any info would do
+ez_safe_menu = Rose start [Rose options [Rose quit []], Rose quit [], Rose cheer_up []] where
+    start = NS f ez_start_menu get_value_and_choose (not_valid_value 3)
+    options = NS f ez_option_menu get_value_and_choose undefined
+    quit = NS f (const $ liftIO $ putStrLn "Bye!") do_nothing undefined
+    cheer_up = NS f (const $ liftIO $ putStrLn "Cheer up!") do_nothing undefined
+    f = runStateT increment_state_counter
+
+not_valid_value :: Int -> IO (Int, TState) -> IO (Either (SomeError,TState) (Int, TState))
+not_valid_value threshold s = do
+    (index, state) <- s
+    if threshold < index then return $ i1 (InvalidOption, state) else return $ i2 (index, state)
+
+{-
+So. Recap. We can now throw a error and break the computation there. But what's the real use of giving the error out? Evaluate it somewhere later on? 
+I mean, we probably should just message something and loop back to get a good answer.. 
+More tomorrow.
 -}
